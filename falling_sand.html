@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Falling Sand</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        * { margin: 0; padding: 0; }
+        html, body { 
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        canvas { 
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 1;
+        }
+        #downloadButton {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            padding: 10px;
+            background: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            z-index: 1000;
+            font-family: Arial, sans-serif;
+            pointer-events: auto;
+        }
+        #buttonContainer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+<div id="buttonContainer">
+    <button id="downloadButton">Download Minified Version</button>
+</div>
+<script>
+// All variables declared at the top
+let grid;
+let velocityGrid;
+let w = 5;  // This was missing
+let cols, rows;
+let hueValue = 200;
+let gravity = 0.1;
+let isMouseOverButton = false;
+
+function make2DArray(cols, rows) {
+    cols = Math.max(1, Math.floor(cols));
+    rows = Math.max(1, Math.floor(rows));
+    try {
+        let arr = new Array(cols);
+        for (let i = 0; i < cols; i++) {
+            arr[i] = new Array(rows).fill(0);
+        }
+        return arr;
+    } catch (e) {
+        console.error('Error creating array:', e);
+        return [[0]];
+    }
+}
+
+function setup() {
+    createCanvas(windowWidth, windowHeight);
+    colorMode(HSB, 360, 255, 255);
+    cols = Math.max(1, Math.floor(width / w));
+    rows = Math.max(1, Math.floor(height / w));
+    grid = make2DArray(cols, rows);
+    velocityGrid = make2DArray(cols, rows);
+
+    // Add button event listeners
+    document.getElementById('downloadButton').addEventListener('mouseover', () => {
+        isMouseOverButton = true;
+    });
+
+    document.getElementById('downloadButton').addEventListener('mouseout', () => {
+        isMouseOverButton = false;
+    });
+
+    document.getElementById('downloadButton').addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        downloadMinified();
+    });
+}
+
+function withinCols(i) {
+    return i >= 0 && i < cols;
+}
+
+function withinRows(j) {
+    return j >= 0 && j < rows;
+}
+
+function draw() {
+    background(0);
+
+    if (mouseIsPressed && !isMouseOverButton) {
+        let mouseCol = floor(constrain(mouseX / w, 0, cols - 1));
+        let mouseRow = floor(constrain(mouseY / w, 0, rows - 1));
+        let matrix = 5;
+        let extent = floor(matrix / 2);
+        
+        for (let i = -extent; i <= extent; i++) {
+            for (let j = -extent; j <= extent; j++) {
+                if (random(1) < 0.75) {
+                    let col = mouseCol + i;
+                    let row = mouseRow + j;
+                    if (withinCols(col) && withinRows(row)) {
+                        grid[col][row] = hueValue;
+                        velocityGrid[col][row] = 1;
+                    }
+                }
+            }
+        }
+        
+        hueValue = (hueValue + 0.5) % 360;
+    }
+
+    for (let i = 0; i < cols; i++) {
+        for (let j = 0; j < rows; j++) {
+            noStroke();
+            if (grid[i][j] > 0) {
+                fill(grid[i][j], 255, 255);
+                let x = i * w;
+                let y = j * w;
+                square(x, y, w);
+            }
+        }
+    }
+
+    try {
+        let nextGrid = make2DArray(cols, rows);
+        let nextVelocityGrid = make2DArray(cols, rows);
+
+        for (let i = 0; i < cols; i++) {
+            for (let j = rows - 1; j >= 0; j--) {
+                let state = grid[i][j];
+                let velocity = velocityGrid[i][j];
+                let moved = false;
+
+                if (state > 0) {
+                    let newPos = constrain(floor(j + velocity), 0, rows - 1);
+                    for (let y = newPos; y > j; y--) {
+                        if (!withinRows(y)) continue;
+                        
+                        let below = grid[i][y];
+                        let dir = random(1) < 0.5 ? 1 : -1;
+                        let belowA = -1;
+                        let belowB = -1;
+                        
+                        if (withinCols(i + dir)) belowA = grid[i + dir][y];
+                        if (withinCols(i - dir)) belowB = grid[i - dir][y];
+
+                        if (below === 0) {
+                            nextGrid[i][y] = state;
+                            nextVelocityGrid[i][y] = velocity + gravity;
+                            moved = true;
+                            break;
+                        } else if (belowA === 0) {
+                            nextGrid[i + dir][y] = state;
+                            nextVelocityGrid[i + dir][y] = velocity + gravity;
+                            moved = true;
+                            break;
+                        } else if (belowB === 0) {
+                            nextGrid[i - dir][y] = state;
+                            nextVelocityGrid[i - dir][y] = velocity + gravity;
+                            moved = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (state > 0 && !moved) {
+                    nextGrid[i][j] = grid[i][j];
+                    nextVelocityGrid[i][j] = velocityGrid[i][j] + gravity;
+                }
+            }
+        }
+        
+        grid = nextGrid;
+        velocityGrid = nextVelocityGrid;
+    } catch (e) {
+        console.error('Error in draw:', e);
+    }
+}
+
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+    const newCols = Math.max(1, Math.floor(width / w));
+    const newRows = Math.max(1, Math.floor(height / w));
+    
+    try {
+        let newGrid = make2DArray(newCols, newRows);
+        let newVelocityGrid = make2DArray(newCols, newRows);
+        
+        for (let i = 0; i < Math.min(cols, newCols); i++) {
+            for (let j = 0; j < Math.min(rows, newRows); j++) {
+                newGrid[i][j] = grid[i][j];
+                newVelocityGrid[i][j] = velocityGrid[i][j];
+            }
+        }
+        
+        grid = newGrid;
+        velocityGrid = newVelocityGrid;
+        cols = newCols;
+        rows = newRows;
+    } catch (e) {
+        console.error('Error in resize:', e);
+    }
+}
+
+function downloadMinified() {
+    const currentCode = document.documentElement.outerHTML;
+    const minified = currentCode
+        .replace(/\s+/g, ' ')
+        .replace(/\s*{\s*/g, '{')
+        .replace(/\s*}\s*/g, '}')
+        .replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '')
+        .replace(/>\s+</g, '><');
+    
+    const blob = new Blob([minified], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'falling_sand.min.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
