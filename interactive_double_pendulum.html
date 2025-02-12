@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body { margin: 0; background: black; }
+        .controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        .controls div {
+            margin: 10px 0;
+        }
+        .controls label {
+            display: inline-block;
+            width: 120px;
+        }
+        input[type="range"] {
+            width: 150px;
+            vertical-align: middle;
+        }
+        button {
+            background: #444;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #666;
+        }
+    </style>
+</head>
+<body>
+<div class="controls">
+    <div>
+        <label>Gravity:</label>
+        <input type="range" id="gravity" min="0" max="200" value="50">
+    </div>
+    <div>
+        <label>Trail Length:</label>
+        <input type="range" id="fade" min="0" max="100" value="10">
+    </div>
+    <div>
+        <label>Color Speed:</label>
+        <input type="range" id="colorSpeed" min="1" max="50" value="10">
+    </div>
+    <div>
+        <label>Arm Length:</label>
+        <input type="range" id="length" min="50" max="200" value="125">
+    </div>
+    <button onclick="resetPendulum()">Reset</button>
+</div>
+<script>
+let r1 = 125, r2 = 125;
+let a1 = Math.PI/2, a2 = Math.PI/2;
+let a1_v = 0, a2_v = 0;
+let cx, cy;
+let buffer;
+let hue = 0;
+
+function resetPendulum() {
+    a1 = Math.PI/2;
+    a2 = Math.PI/2;
+    a1_v = 0;
+    a2_v = 0;
+    buffer.background(0);
+}
+
+function setup() {
+    createCanvas(windowWidth, windowHeight);
+    colorMode(HSB);
+    cx = width/2;
+    cy = 200;
+    buffer = createGraphics(width, height);
+    buffer.colorMode(HSB);
+    buffer.background(0);
+}
+
+function draw() {
+    // Get values from sliders
+    let g = document.getElementById('gravity').value / 100;
+    let fade = document.getElementById('fade').value;
+    let colorSpd = document.getElementById('colorSpeed').value;
+    let armLength = document.getElementById('length').value;
+    
+    r1 = r2 = armLength;
+
+    background(0, max(100 - fade, 1));
+    image(buffer, 0, 0);
+
+    let x1 = r1 * sin(a1);
+    let y1 = r1 * cos(a1);
+    let x2 = x1 + r2 * sin(a2);
+    let y2 = y1 + r2 * cos(a2);
+
+    if (mouseIsPressed) {
+        if (dist(mouseX, mouseY, cx + x1, cy + y1) < 20) {
+            a1 = atan2(mouseX - cx, mouseY - cy);
+            a1_v = 0;
+            a2_v = 0;
+            buffer.background(0);
+        } else if (dist(mouseX, mouseY, cx + x2, cy + y2) < 20) {
+            a2 = atan2(mouseX - (cx + x1), mouseY - (cy + y1));
+            a1_v = 0;
+            a2_v = 0;
+            buffer.background(0);
+        }
+    } else {
+        let a1_a = (-g * (2) * sin(a1) - g * sin(a1 - 2 * a2) - 2 * sin(a1 - a2) * (a2_v * a2_v * r2 + a1_v * a1_v * r1 * cos(a1 - a2))) / (r1 * (2 - cos(2 * a1 - 2 * a2)));
+        let a2_a = (2 * sin(a1 - a2) * (a1_v * a1_v * r1 + g * cos(a1) + a2_v * a2_v * r2 * cos(a1 - a2))) / (r2 * (2 - cos(2 * a1 - 2 * a2)));
+        
+        a1_v += a1_a;
+        a2_v += a2_a;
+        a1 += a1_v;
+        a2 += a2_v;
+
+        buffer.stroke(hue, 100, 100, 0.5);
+        buffer.strokeWeight(2);
+        buffer.line(cx + x1, cy + y1, cx + x2, cy + y2);
+        hue = (hue + colorSpd/10) % 360;
+    }
+
+    stroke(255);
+    strokeWeight(2);
+    line(cx, cy, cx + x1, cy + y1);
+    line(cx + x1, cy + y1, cx + x2, cy + y2);
+
+    fill(255);
+    noStroke();
+    ellipse(cx + x1, cy + y1, 20);
+    ellipse(cx + x2, cy + y2, 20);
+}
+
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+    cx = width/2;
+    buffer = createGraphics(width, height);
+    buffer.colorMode(HSB);
+    buffer.background(0);
+}
+</script>
+</body>
+</html>
