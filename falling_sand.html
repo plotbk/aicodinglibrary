@@ -19,7 +19,7 @@
             height: 100% !important;
             z-index: 1;
         }
-        #downloadButton {
+        #resetButton {
             position: fixed;
             top: 10px;
             left: 10px;
@@ -46,13 +46,13 @@
 </head>
 <body>
 <div id="buttonContainer">
-    <button id="downloadButton">Download Minified Version</button>
+    <button id="resetButton">Reset Simulation</button>
 </div>
 <script>
 // All variables declared at the top
 let grid;
 let velocityGrid;
-let w = 5;  // This was missing
+let w = 5;
 let cols, rows;
 let hueValue = 200;
 let gravity = 0.1;
@@ -81,20 +81,28 @@ function setup() {
     grid = make2DArray(cols, rows);
     velocityGrid = make2DArray(cols, rows);
 
-    // Add button event listeners
-    document.getElementById('downloadButton').addEventListener('mouseover', () => {
+    // Add reset button event listeners
+    document.getElementById('resetButton').addEventListener('mouseover', () => {
         isMouseOverButton = true;
     });
 
-    document.getElementById('downloadButton').addEventListener('mouseout', () => {
+    document.getElementById('resetButton').addEventListener('mouseout', () => {
         isMouseOverButton = false;
     });
 
-    document.getElementById('downloadButton').addEventListener('click', (e) => {
+    document.getElementById('resetButton').addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        downloadMinified();
+        resetSimulation();
     });
+}
+
+function resetSimulation() {
+    // Clear the grid and velocity grid
+    grid = make2DArray(cols, rows);
+    velocityGrid = make2DArray(cols, rows);
+    // Reset hue value to starting color
+    hueValue = 200;
 }
 
 function withinCols(i) {
@@ -221,26 +229,6 @@ function windowResized() {
     } catch (e) {
         console.error('Error in resize:', e);
     }
-}
-
-function downloadMinified() {
-    const currentCode = document.documentElement.outerHTML;
-    const minified = currentCode
-        .replace(/\s+/g, ' ')
-        .replace(/\s*{\s*/g, '{')
-        .replace(/\s*}\s*/g, '}')
-        .replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '')
-        .replace(/>\s+</g, '><');
-    
-    const blob = new Blob([minified], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'falling_sand.min.html';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
 }
 </script>
 </body>
