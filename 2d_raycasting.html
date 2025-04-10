@@ -8,13 +8,104 @@
             margin: 0;
             padding: 0;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             background: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        
+        button {
+            background: #333;
+            color: white;
+            border: 2px solid #555;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            display: block;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+        
+        button:hover {
+            background: #444;
+            border-color: #777;
+        }
+        
+        .slider-container {
+            margin-top: 10px;
+        }
+        
+        .slider-container label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 8px;
+            background: #333;
+            outline: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #aaa;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 12px;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
+<div id="controls">
+    <button id="resetBtn">Reset Barriers</button>
+    <div class="slider-container">
+        <label for="barrierSlider">Number of Barriers: <span id="barrierValue">5</span></label>
+        <input type="range" id="barrierSlider" min="1" max="15" value="5" class="slider">
+    </div>
+</div>
+<div class="instructions">
+    Move your mouse to control the light source, or let it move automatically.
+</div>
 <script>
 // Ray class
 class Ray {
@@ -85,7 +176,7 @@ class Particle {
     constructor() {
         this.pos = createVector(width / 2, height / 2);
         this.rays = [];
-        for (let a = 0; a < 360; a += 1) {
+        for (let a = 0; a < 360; a += 2) { // Reduced ray count for better performance
             this.rays.push(new Ray(this.pos, radians(a)));
         }
     }
@@ -110,17 +201,20 @@ class Particle {
                 }
             }
             if (closest) {
-                stroke(255, 100);
+                // Add slight color variation based on distance
+                const brightness = map(record, 0, width, 255, 100);
+                stroke(255, brightness, brightness/2, 100);
                 line(this.pos.x, this.pos.y, closest.x, closest.y);
             }
         }
     }
 
     show() {
-        fill(255);
-        ellipse(this.pos.x, this.pos.y, 4);
+        fill(255, 255, 100);
+        noStroke();
+        ellipse(this.pos.x, this.pos.y, 8);
         for (let ray of this.rays) {
-            ray.show();
+            // ray.show(); // Hide individual rays for cleaner look
         }
     }
 }
@@ -130,16 +224,48 @@ let walls = [];
 let particle;
 let xoff = 0;
 let yoff = 10000;
+let numInnerWalls = 5;
+let automaticMovement = true;
+let lastMouseMoveTime = 0;
+const mouseTimeout = 3000; // 3 seconds of no mouse movement before automatic
+let barrierSlider;
 
 function setup() {
     createCanvas(windowWidth, windowHeight);
     
-    // Create random walls
-    for (let i = 0; i < 5; i++) {
-        let x1 = random(width);
-        let y1 = random(height);
-        let x2 = random(width);
-        let y2 = random(height);
+    // Create initial walls
+    createWalls();
+    
+    particle = new Particle();
+    
+    // Set up reset button
+    document.getElementById('resetBtn').addEventListener('click', resetWalls);
+    
+    // Set up barrier slider
+    barrierSlider = document.getElementById('barrierSlider');
+    barrierSlider.addEventListener('input', function() {
+        numInnerWalls = parseInt(this.value);
+        document.getElementById('barrierValue').textContent = numInnerWalls;
+    });
+    
+    barrierSlider.addEventListener('change', function() {
+        resetWalls();
+    });
+}
+
+function createWalls() {
+    walls = [];
+    
+    // Create random inner walls based on slider value
+    for (let i = 0; i < numInnerWalls; i++) {
+        let x1 = random(width * 0.1, width * 0.9);
+        let y1 = random(height * 0.1, height * 0.9);
+        
+        // Adjust wall length based on number of walls (more walls = shorter)
+        let maxLength = map(numInnerWalls, 1, 15, 300, 150);
+        let x2 = x1 + random(-maxLength, maxLength);
+        let y2 = y1 + random(-maxLength, maxLength);
+        
         walls.push(new Boundary(x1, y1, x2, y2));
     }
     
@@ -148,15 +274,32 @@ function setup() {
     walls.push(new Boundary(width, 0, width, height));
     walls.push(new Boundary(width, height, 0, height));
     walls.push(new Boundary(0, height, 0, 0));
+}
+
+function resetWalls() {
+    // Add a visual feedback for reset
+    background(100, 100, 255);
     
-    particle = new Particle();
+    // Recreate walls in new positions
+    createWalls();
+    
+    // Update display
+    document.getElementById('barrierValue').textContent = numInnerWalls;
 }
 
 function draw() {
     background(0);
     
+    // Check if mouse has moved recently
+    if (mouseX !== pmouseX || mouseY !== pmouseY) {
+        lastMouseMoveTime = millis();
+        automaticMovement = false;
+    } else if (millis() - lastMouseMoveTime > mouseTimeout) {
+        automaticMovement = true;
+    }
+    
     // Update particle position with mouse or Perlin noise
-    if (mouseX !== 0 && mouseY !== 0) {
+    if (!automaticMovement) {
         particle.update(mouseX, mouseY);
     } else {
         particle.update(noise(xoff) * width, noise(yoff) * height);
@@ -169,12 +312,20 @@ function draw() {
         wall.show();
     }
     
-    particle.show();
     particle.look(walls);
+    particle.show();
 }
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
+    resetWalls();
+}
+
+// Handle mobile touch
+function touchMoved() {
+    lastMouseMoveTime = millis();
+    automaticMovement = false;
+    return false;
 }
 </script>
 </body>
